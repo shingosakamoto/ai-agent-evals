@@ -1,0 +1,58 @@
+---
+name: Continuous Integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  run-tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: python -m pytest
+
+  run-action:
+    name: Test Action
+    runs-on: ubuntu-latest
+    steps:
+      # required because action is unpublished
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure login using Federated Credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Test local action
+        uses: ./
+        with:
+          azure-ai-project-connection-string: "eastus2.api.azureml.ms;80d2c6c6-fa64-4ab1-8aa5-4e118c6b16ce;rg-aprilk-test-agent-template-02;ai-project-cjn4rbprsy56k"
+          data-path: ${{ github.workspace }}/tests/data/golden-dataset-small.json
+          agent-ids: "asst_6ScdM6tAPLIxfo6HY3Ro8Y4K, asst_chwHMbUnovWbQ0HDJKlGXDfi"
