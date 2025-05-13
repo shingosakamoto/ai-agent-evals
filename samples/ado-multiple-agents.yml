@@ -9,13 +9,21 @@ pool:
 
 steps:
   - task: AzureCLI@2
-    displayName: "Verify Azure CLI login"
+    displayName: "Azure CLI login"
     inputs:
       azureSubscription: $(ADO_SERVICE_CONNECTION_NAME)
+      addSpnToEnvironment: true
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
+        echo "##vso[task.setvariable variable=AZURE_CLIENT_ID]$servicePrincipalId"
+        echo "##vso[task.setvariable variable=AZURE_TENANT_ID]$tenantId"
+        echo "##vso[task.setvariable variable=AZURE_FEDERATED_TOKEN]$idToken"
         echo "Logged in to Azure CLI"
+
+  - bash: |
+      az login --service-principal -u $(AZURE_CLIENT_ID) --tenant $(AZURE_TENANT_ID) --allow-no-subscriptions --federated-token $(AZURE_FEDERATED_TOKEN)
+    displayName: "Az Login"
 
   - task: UsePythonVersion@0
     inputs:
