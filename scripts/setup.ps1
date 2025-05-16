@@ -1,45 +1,19 @@
 # Run this script first to set up the environment for Azure DevOps Extension development.
 # It installs the required ps_modules, sets up the task paths, and builds the front-end for AIAgentReport.
 # It also updates the version in vss-extension.json and creates a production version of the file.
+$scriptsFolder = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
+. $scriptsFolder\set-variables.ps1
 
-# Get the repository root directory regardless of where the script is invoked from
-$scriptPath = $MyInvocation.MyCommand.Path
-$scriptsFolder = Split-Path -Path $scriptPath -Parent
-$repoRoot = Split-Path -Path $scriptsFolder -Parent
-
-$prodExtensionDir = Join-Path -Path $repoRoot -ChildPath "dist/prod"
 New-Item -Path $prodExtensionDir -ItemType Directory -Force | Out-Null
-
 Push-Location -Path $repoRoot
 
 try {
-    Write-Host "Setting up VstsTaskSdk module..."
-
-    # Use the download-vstsTaskSdk.ps1 
-    $downloadScriptPath = Join-Path -Path $scriptsFolder -ChildPath "download-vstsTaskSdk.ps1"
-    
-    if (Test-Path -Path $downloadScriptPath) {
-        Write-Host "Downloading VstsTaskSdk module from GitHub repository..."
-        & $downloadScriptPath
-        
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "Failed to download VstsTaskSdk module from GitHub. Exit code: $LASTEXITCODE"
-            exit 1
-        }
-    }
-    else {
-        Write-Error "download-vstsTaskSdk.ps1 script not found at path: $downloadScriptPath"
-        exit 1
-    }
-
     Write-Host "Building AIAgentReport web UI..."
     $reportPath = Join-Path -Path $repoRoot -ChildPath "tasks/AIAgentReport"
     Push-Location -Path $reportPath
     try {
         npm ci
-        
         npm run build
-        
         Write-Host "AIAgentReport build completed successfully" -ForegroundColor Green
     }
     catch {
@@ -74,6 +48,54 @@ try {
         exit 1
     }
     Write-Host "Copied supporting files for extension" -ForegroundColor Green
+
+    Write-Host "Setting up VstsTaskSdk module..."
+
+    # Use the download-vstsTaskSdk.ps1 
+    & (Join-Path -Path $scriptsFolder -ChildPath "download-vstsTaskSdk.ps1")
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to download VstsTaskSdk module"
+        exit 1
+    }
+    Write-Host "VstsTaskSdk module downloaded successfully" -ForegroundColor Green
+
+    $commonLatestTask = Join-Path -Path $repoRoot -ChildPath "tasks/AIAgentEvaluation"
+    $filesToCopyInLatest = @(
+        "task.json",
+        "run.ps1",
+        "check-python.ps1"
+    )
+    foreach ($file in $filesToCopyInLatest) {
+        $sourcePath = Join-Path -Path $commonLatestTask -ChildPath $file
+        $destPath = Join-Path -Path $prodExtensionDir -ChildPath "tasks/AIAgentEvaluation/$latestVersion/$file"
+        $removePath = Join-Path -Path $prodExtensionDir -ChildPath "tasks/AIAgentEvaluation/$file"
+        Copy-Item -Path $sourcePath -Destination $destPath -Force
+        Remove-Item -Path $removePath -Force -ErrorAction SilentlyContinue
+        Write-Host "Copied $file to $destPath" -ForegroundColor Green
+    }
+
+    # add action.py, analysis and pyproject.toml to the production v1 directory
+    . $scriptsFolder/download-previousVersions.ps1
+
+    # Add action.py, analysis and pyproject.toml to the production latest(v2) directory
+    $filesToCopy = @(
+        "action.py",
+        "pyproject.toml"
+    )
+    $foldersToCopy = @(
+        "analysis"
+    )
+    foreach ($file in $filesToCopy) {
+        $sourcePath = Join-Path -Path $repoRoot -ChildPath $file
+        $destPath = Join-Path -Path $prodExtensionDir -ChildPath "tasks/AIAgentEvaluation/$latestVersion/$file"
+        Copy-Item -Path $sourcePath -Destination $destPath -Force
+    }
+    foreach ($folder in $foldersToCopy) {
+        $sourcePath = Join-Path -Path $repoRoot -ChildPath $folder
+        $destPath = Join-Path -Path $prodExtensionDir -ChildPath "tasks/AIAgentEvaluation/$latestVersion/$folder"
+        Copy-Directory -SourceDir $sourcePath -DestinationDir $destPath
+    }
+
 
     $validate = Check-CriticalFiles -OutputDir $prodExtensionDir -IsDevExtension $false
     if (-not $validate) {

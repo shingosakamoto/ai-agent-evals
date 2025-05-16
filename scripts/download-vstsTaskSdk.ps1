@@ -3,34 +3,13 @@
 # and place it in the correct task folder
 
 # Get the repository root directory regardless of where the script is invoked from
-$scriptPath = $MyInvocation.MyCommand.Path
-$scriptsFolder = Split-Path -Path $scriptPath -Parent
-$repoRoot = Split-Path -Path $scriptsFolder -Parent
+$scriptsFolder = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
+. $scriptsFolder\set-variables.ps1
 
 # load utils
-$utilsPath = Join-Path -Path $repoRoot -ChildPath "scripts/utilities.ps1"
 . $utilsPath
 
 Write-Host "Repository root: $repoRoot"
-
-# Define the target task directory
-$taskModulesPath = Join-Path -Path $repoRoot -ChildPath "tasks/AIAgentEvaluation/ps_modules/VstsTaskSdk"
-
-# Create the ps_modules/VstsTaskSdk directory if it doesn't exist
-if (-not (Test-Path -Path $taskModulesPath)) {
-    New-Item -Path $taskModulesPath -ItemType Directory -Force | Out-Null
-    Write-Host "Created directory: $taskModulesPath"
-}
-
-# Create a temporary directory to clone the repo
-$tempEnv = $env:TEMP
-if ([string]::IsNullOrWhiteSpace($tempEnv)) {
-    $tempEnv = $env:TMPDIR
-}
-if ([string]::IsNullOrWhiteSpace($tempEnv)) {
-    $tempEnv = "/tmp"  # fallback default for Linux
-}
-$tempDir = Join-Path -Path $tempEnv -ChildPath "VstsTaskSdk_$(Get-Random)"
 
 New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
 Write-Host "Created temporary directory: $tempDir"
@@ -56,23 +35,22 @@ try {
     npm run build
 
     # Navigate to the VstsTaskSdk directory in the cloned repo
-    $sourceDir = Join-Path -Path $tempDir -ChildPath "azure-pipelines-task-lib/powershell/_build/VstsTaskSdk"
+    $buildResultDir = Join-Path -Path $tempDir -ChildPath "azure-pipelines-task-lib/powershell/_build/VstsTaskSdk"
     
-    if (-not (Test-Path -Path $sourceDir)) {
+    if (-not (Test-Path -Path $buildResultDir)) {
         throw "VstsTaskSdk directory not found in cloned repository"
     }
-    
-    Write-Host "Copying VstsTaskSdk files from '$sourceDir' to '$taskModulesPath'..."
-
     # check if sourceDir contains "VstsTaskSdk.psm1"
-    if (-not (Test-Path -Path "$sourceDir/VstsTaskSdk.psm1")) {
+    if (-not (Test-Path -Path "$buildResultDir/VstsTaskSdk.psm1")) {
         throw "VstsTaskSdk.psm1 not found in source directory"
     }
-
-    Copy-Directory -SourceDir $sourceDir -DestinationDir $taskModulesPath
-    Write-Host "Copied following files:"
-    Get-ChildItem -Path $taskModulesPath -File | ForEach-Object { Write-Host $_.FullName }
-    Write-Host "Successfully copied VstsTaskSdk to the task module directory"
+    
+    # Copy the VstsTaskSdk module to all the versions directory
+    foreach ($version in $versions) {
+        $vstsTaskSdkDestPath = Join-Path -Path $prodExtensionDir -ChildPath "tasks/AIAgentEvaluation/$version/ps_modules/VstsTaskSdk"
+        Copy-Directory -SourceDir $buildResultDir -DestinationDir $vstsTaskSdkDestPath
+    }
+    Write-Host "Copied VstsTaskSdk module to production directory" -ForegroundColor Green
 }
 catch {
     Write-Error "An error occurred: $_"
