@@ -28,7 +28,7 @@ jobs:
         uses: microsoft/ai-agent-evals@v1-beta
         with:
           # Replace placeholders with values for your Azure AI Project
-          azure-aiproject-connection-string: "<your-ai-project-conn-str>"
-          deployment-name: "<your-deployment-name>"
-          agent-ids: "<your-ai-agent-ids>"
-          data-path: ${{ github.workspace }}/path/to/your/data-file
+          azure-aiproject-connection-string: "eastus.api.azureml.ms;33c24807-09a7-43fb-a742-915507254d7d;rg-ai-agent-evals;ai-project-gevydfxjhysra"
+          deployment-name: "gpt-4o"
+          agent-ids: "asst_PxtZxoO2kY5uSGsNzuo4uVph"
+          data-path: ${{ github.workspace }}/evaluations/my_test_data.csv
