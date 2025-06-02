@@ -20,8 +20,8 @@ jobs:
       - name: Azure login using Federated Credentials
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ab36c882-c76f-40b3-a9ed-e213bfca0299
+          tenant-id: 62248d83-6539-4749-aeec-97936af356dc
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           enable-AzPSSession: true
 
